@@ -76,7 +76,4 @@ streamlit run Tracking.py
 3. Adding new person to database
 ![Adding new person to database](assets/adding.png)
 
-4. Deployed app on Streamlit Cloud. [Click here](https://datct00-face-recognition-app-using-streamlit-tracking-sel9ym.streamlit.app/) to watch a demo of the app.
-
-## Contact
-If you have any questions, feel free to contact me via email: `chungtiendat8102000@gmail.com`
+4. Deployed app on Streamlit Cloud. 
