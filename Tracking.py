@@ -5,13 +5,28 @@ import yaml
 from utils import recognize, build_dataset
 # Path: code\app.py
 
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="Face Recognition", page_icon="🧠", layout="wide")
 #Config
 cfg = yaml.load(open('config.yaml','r'),Loader=yaml.FullLoader)
 PICTURE_PROMPT = cfg['INFO']['PICTURE_PROMPT']
 WEBCAM_PROMPT = cfg['INFO']['WEBCAM_PROMPT']
 
 
+
+st.markdown(
+    """
+    <style>
+      .identity-box{background:#f7f7f9;border:1px solid #e6e8eb;padding:12px 14px;border-radius:10px;margin-bottom:8px}
+      .identity-title{font-weight:600;color:#0f172a;margin-bottom:6px}
+      .identity-value{color:#065f46;background:#ecfdf5;border:1px solid #d1fae5;display:inline-block;padding:4px 8px;border-radius:6px}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown("## 🧠 Face Recognition")
+st.caption("Upload an image or use your webcam. The app detects faces and displays the recognized Moodle ID_Name.")
+st.divider()
 
 st.sidebar.title("Settings")
 
@@ -27,7 +42,15 @@ st.sidebar.info("Tolerance is the threshold for face recognition. The lower the 
 #Infomation section 
 st.sidebar.title("Student Information")
 combined_container = st.sidebar.empty()
-combined_container.info('Moodle ID_Name: Unknown')
+combined_container.markdown(
+    """
+    <div class="identity-box">
+      <div class="identity-title">Moodle ID_Name</div>
+      <div class="identity-value">Unknown</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 if choice == "Picture":
     st.title("Face Recognition App")
     st.write(PICTURE_PROMPT)
@@ -38,7 +61,15 @@ if choice == "Picture":
             image = frg.load_image_file(image)
             image, name, id = recognize(image,TOLERANCE) 
             combined_label = 'Unknown' if id == 'Unknown' else f"{id}_{name.replace(' ', '_')}"
-            combined_container.success(f"Moodle ID_Name: {combined_label}")
+            combined_container.markdown(
+                f"""
+                <div class=\"identity-box\">
+                  <div class=\"identity-title\">Moodle ID_Name</div>
+                  <div class=\"identity-value\">{combined_label}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             st.image(image)
     else: 
         st.info("Please upload an image")
@@ -63,7 +94,15 @@ elif choice == "Webcam":
         #Display name and ID of the person
         
         combined_label = 'Unknown' if id == 'Unknown' else f"{id}_{name.replace(' ', '_')}"
-        combined_container.success(f"Moodle ID_Name: {combined_label}")
+        combined_container.markdown(
+            f"""
+            <div class=\"identity-box\">
+              <div class=\"identity-title\">Moodle ID_Name</div>
+              <div class=\"identity-value\">{combined_label}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         FRAME_WINDOW.image(image)
 
 with st.sidebar.form(key='my_form'):
