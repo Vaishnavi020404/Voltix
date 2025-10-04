@@ -10,12 +10,22 @@ st.set_page_config(layout="wide")
 with open(PKL_PATH, 'rb') as file:
     database = pickle.load(file)
 
-Index, Id, Name, Image  = st.columns([0.5,0.5,3,3])
+Index, MoodleID, Name, Image  = st.columns([0.6,0.9,3,3])
+
+# Headers
+with Index:
+    st.markdown("**Index**")
+with MoodleID:
+    st.markdown("**Moodle ID**")
+with Name:
+    st.markdown("**Name**")
+with Image:
+    st.markdown("**Image**")
 
 for idx, person in database.items():
     with Index:
         st.write(idx)
-    with Id: 
+    with MoodleID: 
         st.write(person['id'])
     with Name:     
         st.write(person['name'])

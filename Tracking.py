@@ -1,4 +1,3 @@
-
 import streamlit as st
 import cv2
 import face_recognition as frg
@@ -27,10 +26,8 @@ st.sidebar.info("Tolerance is the threshold for face recognition. The lower the 
 
 #Infomation section 
 st.sidebar.title("Student Information")
-name_container = st.sidebar.empty()
-id_container = st.sidebar.empty()
-name_container.info('Name: Unnknown')
-id_container.success('ID: Unknown')
+combined_container = st.sidebar.empty()
+combined_container.info('Moodle ID_Name: Unknown')
 if choice == "Picture":
     st.title("Face Recognition App")
     st.write(PICTURE_PROMPT)
@@ -40,8 +37,8 @@ if choice == "Picture":
         for image in uploaded_images:
             image = frg.load_image_file(image)
             image, name, id = recognize(image,TOLERANCE) 
-            name_container.info(f"Name: {name}")
-            id_container.success(f"ID: {id}")
+            combined_label = 'Unknown' if id == 'Unknown' else f"{id}_{name.replace(' ', '_')}"
+            combined_container.success(f"Moodle ID_Name: {combined_label}")
             st.image(image)
     else: 
         st.info("Please upload an image")
@@ -65,8 +62,8 @@ elif choice == "Webcam":
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         #Display name and ID of the person
         
-        name_container.info(f"Name: {name}")
-        id_container.success(f"ID: {id}")
+        combined_label = 'Unknown' if id == 'Unknown' else f"{id}_{name.replace(' ', '_')}"
+        combined_container.success(f"Moodle ID_Name: {combined_label}")
         FRAME_WINDOW.image(image)
 
 with st.sidebar.form(key='my_form'):
