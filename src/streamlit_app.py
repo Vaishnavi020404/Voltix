@@ -1,12 +1,10 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, RTCConfiguration
 from ultralytics import YOLO
+import cv2
 import numpy as np
-import av
+from PIL import Image
 import time
 from pathlib import Path
-import queue
-import threading
 
 # Page configuration
 st.set_page_config(
@@ -21,6 +19,7 @@ st.markdown("Real-time detection using YOLOv8")
 # Sidebar controls
 st.sidebar.header("Settings")
 confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.2, 0.05)
+detection_mode = st.sidebar.radio("Detection Mode", ["Upload Image", "Use Camera"])
 
 # Get the directory where this script is located
 script_dir = Path(__file__).parent.absolute()
@@ -75,120 +74,132 @@ if model is None:
     st.error("Failed to load YOLO model. Please check the model path.")
     st.stop()
 
-# Detection log queue
-detection_queue = queue.Queue(maxsize=20)
-
-class VideoTransformer(VideoTransformerBase):
-    def __init__(self):
-        self.model = model
-        self.confidence = confidence_threshold
-        self.frame_count = 0
-        
-    def transform(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        self.frame_count += 1
-        
-        # Run YOLO detection
-        results = self.model.predict(source=img, conf=self.confidence, verbose=False)
-        
-        # Annotate frame
-        annotated_img = results[0].plot()
-        
-        # Process detections for log
-        detections = []
-        if len(results[0].boxes) == 0:
-            detections.append("No ID/strap detected")
-        else:
-            for box in results[0].boxes:
-                cls_id = int(box.cls[0])
-                conf = float(box.conf[0])
-                label = self.model.names[cls_id]
-                detections.append(f"{label}: {conf:.2f}")
-        
-        # Add to queue
-        timestamp = time.strftime("%H:%M:%S")
-        try:
-            detection_queue.put_nowait({
-                'time': timestamp,
-                'detections': detections,
-                'count': len(results[0].boxes)
-            })
-        except queue.Full:
-            try:
-                detection_queue.get_nowait()
-                detection_queue.put_nowait({
-                    'time': timestamp,
-                    'detections': detections,
-                    'count': len(results[0].boxes)
-                })
-            except:
-                pass
-        
-        return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
-
-# RTC Configuration for WebRTC
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-)
-
 # Create columns for layout
 col1, col2 = st.columns([2, 1])
 
-with col1:
-    st.subheader("Live Feed")
-    webrtc_ctx = webrtc_streamer(
-        key="yolo-detector",
-        video_transformer_factory=VideoTransformer,
-        rtc_configuration=RTC_CONFIGURATION,
-        media_stream_constraints={"video": True, "audio": False},
-        async_processing=True,
-    )
-
-with col2:
-    st.subheader("Detection Log")
-    detection_log_placeholder = st.empty()
+if detection_mode == "Use Camera":
+    with col1:
+        st.subheader("Camera Feed")
+        camera_image = st.camera_input("Take a picture")
+        
+        if camera_image is not None:
+            # Convert to PIL Image
+            image = Image.open(camera_image)
+            
+            # Convert to numpy array
+            img_array = np.array(image)
+            
+            # Run YOLO detection
+            with st.spinner("Detecting..."):
+                results = model.predict(source=img_array, conf=confidence_threshold, verbose=False)
+            
+            # Annotate image
+            annotated_img = results[0].plot()
+            
+            # Convert BGR to RGB
+            annotated_img_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
+            
+            # Display annotated image
+            st.image(annotated_img_rgb, caption="Detection Results", use_container_width=True)
     
-    # Display detection log
-    if webrtc_ctx.state.playing:
-        detection_log = []
-        while True:
-            try:
-                if webrtc_ctx.state.playing:
-                    try:
-                        data = detection_queue.get(timeout=1)
-                        log_entry = f"[{data['time']}] {', '.join(data['detections'])}"
-                        detection_log.append(log_entry)
-                        detection_log = detection_log[-15:]  # Keep last 15
-                        
-                        detection_log_placeholder.text_area(
-                            "Recent Detections",
-                            "\n".join(reversed(detection_log)),
-                            height=400
-                        )
-                    except queue.Empty:
-                        pass
-                else:
-                    break
+    with col2:
+        st.subheader("Detection Results")
+        
+        if camera_image is not None:
+            if len(results[0].boxes) == 0:
+                st.warning("No ID/strap detected")
+            else:
+                st.success(f"Found {len(results[0].boxes)} object(s)")
+                
+                # Display detections
+                for idx, box in enumerate(results[0].boxes):
+                    cls_id = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    label = model.names[cls_id]
                     
-                time.sleep(0.1)
-            except:
-                break
-    else:
-        st.info("👈 Click 'START' to begin detection")
+                    with st.container():
+                        st.markdown(f"**Detection {idx + 1}:**")
+                        st.write(f"- Class: {label}")
+                        st.write(f"- Confidence: {conf:.2%}")
+                        st.markdown("---")
+        else:
+            st.info("📸 Take a picture to start detection")
+
+else:  # Upload Image mode
+    with col1:
+        st.subheader("Upload Image")
+        uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+        
+        if uploaded_file is not None:
+            # Convert to PIL Image
+            image = Image.open(uploaded_file)
+            
+            # Display original image
+            st.image(image, caption="Original Image", use_container_width=True)
+            
+            # Convert to numpy array
+            img_array = np.array(image)
+            
+            # Run YOLO detection
+            with st.spinner("Detecting..."):
+                results = model.predict(source=img_array, conf=confidence_threshold, verbose=False)
+            
+            # Annotate image
+            annotated_img = results[0].plot()
+            
+            # Convert BGR to RGB
+            annotated_img_rgb = cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB)
+            
+            # Display annotated image
+            st.image(annotated_img_rgb, caption="Detection Results", use_container_width=True)
+    
+    with col2:
+        st.subheader("Detection Results")
+        
+        if uploaded_file is not None:
+            if len(results[0].boxes) == 0:
+                st.warning("No ID/strap detected")
+            else:
+                st.success(f"Found {len(results[0].boxes)} object(s)")
+                
+                # Display detections
+                for idx, box in enumerate(results[0].boxes):
+                    cls_id = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    label = model.names[cls_id]
+                    
+                    # Get bounding box coordinates
+                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                    
+                    with st.container():
+                        st.markdown(f"**Detection {idx + 1}:**")
+                        st.write(f"- Class: {label}")
+                        st.write(f"- Confidence: {conf:.2%}")
+                        st.write(f"- Box: ({int(x1)}, {int(y1)}) to ({int(x2)}, {int(y2)})")
+                        st.markdown("---")
+        else:
+            st.info("📤 Upload an image to start detection")
 
 # Instructions
 st.markdown("---")
 st.markdown("""
 ### Instructions:
-1. Click **START** button above to activate your webcam
-2. Allow browser access to your camera when prompted
-3. The model will detect IDs and straps in real-time
-4. Adjust confidence threshold in the sidebar if needed
-5. Click **STOP** to end the session
+**Camera Mode:**
+- Click the camera button to take a picture
+- Detection will run automatically on the captured image
+- Take another picture to detect again
 
-**Note:** Make sure your browser has camera permissions enabled.
+**Upload Mode:**
+- Click "Browse files" to upload an image
+- Supports JPG, JPEG, and PNG formats
+- Detection results will appear on the right
+
+**Settings:**
+- Adjust the confidence threshold in the sidebar to filter detections
+- Lower values = more detections (but possibly more false positives)
+- Higher values = fewer, more confident detections
 """)
 
 # Footer
 st.markdown("---")
-st.markdown("**Powered by YOLOv8 + Streamlit WebRTC**")
+st.markdown("**Powered by YOLOv8 + Streamlit**")
