@@ -8,12 +8,12 @@ import threading
 
 # Page configuration
 st.set_page_config(
-    page_title="ID + Strap Detector",
-    page_icon="🎥",
+    page_title="ID Strap Detector",
+    page_icon="",
     layout="wide"
 )
 
-st.title("🎥 ID + Strap Detector - Live Webcam")
+st.title("ID Strap Detector - Live Webcam")
 st.markdown("Real-time detection using YOLOv8")
 
 # Sidebar controls
@@ -36,7 +36,7 @@ for path in possible_paths:
     abs_path = path.resolve()
     if abs_path.exists():
         model_path = str(abs_path)
-        st.sidebar.success(f"✅ Model loaded successfully")
+        st.sidebar.success(f"Model loaded successfully")
         break
 
 if model_path is None:
@@ -47,7 +47,7 @@ if model_path is None:
     )
     if custom_path and Path(custom_path).exists():
         model_path = custom_path
-        st.sidebar.success(f"✅ Model loaded successfully")
+        st.sidebar.success(f"Model loaded successfully")
     else:
         st.error("⚠️ Please provide a valid model path in the sidebar.")
         st.info(f"**Script location:** {script_dir}")
@@ -138,7 +138,7 @@ class YOLOVideoTransformer(VideoTransformerBase):
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.subheader("📹 Live Webcam Feed")
+    st.subheader("Live Webcam Feed")
     
     # WebRTC streamer
     webrtc_ctx = webrtc_streamer(
@@ -150,7 +150,7 @@ with col1:
     )
 
 with col2:
-    st.subheader("🔍 Detection Log")
+    st.subheader("Detection Log")
     
     # Placeholder for detection log
     detection_placeholder = st.empty()
@@ -190,12 +190,12 @@ with col2:
             
             time.sleep(0.5)
     else:
-        st.info("👈 Click **START** to begin live detection")
+        st.info("Click **START** to begin live detection")
 
 # Instructions
 st.markdown("---")
 st.markdown("""
-### 📋 Instructions:
+### Instructions:
 
 1. **Click the START button** above to activate your webcam
 2. **Allow camera access** when your browser prompts you
@@ -204,16 +204,16 @@ st.markdown("""
 5. **Adjust confidence threshold** in the sidebar to filter results
 6. **Click STOP** to end the session
 
-### ⚠️ Troubleshooting:
+### Troubleshooting:
 
 - **Camera not working?** Make sure your browser has camera permissions enabled
 - **No video showing?** Try refreshing the page and clicking START again
 - **Slow performance?** Increase the confidence threshold to reduce processing load
 
-### 🎯 Detection Classes:
+### Detection Classes:
 The model detects: **{', '.join(model.names.values())}**
 """)
 
 # Footer
 st.markdown("---")
-st.markdown("**🚀 Powered by YOLOv8 + Streamlit WebRTC**")
+st.markdown("** Powered by YOLOv8 & Streamlit WebRTC**")
