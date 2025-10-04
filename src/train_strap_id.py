@@ -8,7 +8,7 @@ results = model.train(
     # --- CORRECTED PATH (relative to Volitx folder) ---
    # CHANGE THIS LINE in train_strap_id.py (Line 9)
     # In train_strap_id.py (Line 9)
-    data="strap_id_dataset/data.yaml", # No '..' or absolute path needed
+    data="../data.yaml", # No '..' or absolute path needed
     # ---------------------------------------------------
     epochs=100,                         # Recommended epochs for good learning
     imgsz=640,
