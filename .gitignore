@@ -1,0 +1,8 @@
+# Ignore all virtual environment folders
+.venv/
+.venv_new/
+.venv_312/
+.venv_312_new/
+# Ignore Python compiled code
+__pycache__/
+*.pyc
