@@ -1,2 +1,0 @@
-# Voltix
-Campus Access Control

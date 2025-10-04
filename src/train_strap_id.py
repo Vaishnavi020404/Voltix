@@ -1,18 +1,19 @@
 from ultralytics import YOLO
 
 # Load a pretrained YOLOv8 model
-model = YOLO("yolov8n.pt")   # you can also use yolov8s.pt for better accuracy
+model = YOLO("yolov8n.pt") 
 
 # Train on your dataset
 results = model.train(
-    data="../strap_id_dataset/data.yaml",  # dataset yaml
-    epochs=50,                                   # number of epochs
-    imgsz=640,                                   # image size
-    batch=16,                                    # batch size (adjust to your system)
-    project="models/strap_id",                   # folder to save models
-    name="exp1",                                 # experiment name
-    workers=4                                    # number of workers
+    # --- CORRECTED PATH (relative to Volitx folder) ---
+   # CHANGE THIS LINE in train_strap_id.py (Line 9)
+    # In train_strap_id.py (Line 9)
+    data="../data.yaml", # No '..' or absolute path needed
+    # ---------------------------------------------------
+    epochs=100,                         # Recommended epochs for good learning
+    imgsz=640,
+    batch=16, 
+    project="models/strap_id",          
+    name="exp_fixed",                   # Use a new name like this
+    workers=4 
 )
-
-# After training, best model is saved at:
-# models/strap_id/exp1/weights/best.pt

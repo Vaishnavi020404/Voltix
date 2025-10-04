@@ -2,7 +2,8 @@ from ultralytics import YOLO
 import cv2
 
 # Load trained YOLOv8 model
-model = YOLO("../models/strap_id/exp14/weights/best.pt")  # adjust path if needed
+# The path must go up one level (..), then into models\strap_id\exp_fixed11
+model = YOLO("../models/strap_id/exp_fixed11/weights/best.pt")  # adjust path if needed
 
 # Open webcam (0 = default cam, use 1 if external)
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
