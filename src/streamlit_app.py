@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("ID Strap Detector - Live Webcam")
+st.title("ID Strap Detector")
 st.markdown("Real-time detection using YOLOv8")
 
 # Sidebar controls
@@ -210,8 +210,6 @@ st.markdown("""
 - **No video showing?** Try refreshing the page and clicking START again
 - **Slow performance?** Increase the confidence threshold to reduce processing load
 
-### Detection Classes:
-The model detects: **{', '.join(model.names.values())}**
 """)
 
 # Footer
