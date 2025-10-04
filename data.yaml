@@ -1,0 +1,7 @@
+path: ../
+train: strap_id_dataset/train/images
+val: strap_id_dataset/valid/images
+test: strap_id_dataset/test/images
+
+nc: 2 
+names: ['ID-card', 'Not_wearing_ID_card']
