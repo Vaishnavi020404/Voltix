@@ -4,6 +4,8 @@ from ultralytics import YOLO
 import numpy as np
 from PIL import Image
 import time
+import os
+from pathlib import Path
 
 # Page configuration
 st.set_page_config(
@@ -20,8 +22,41 @@ st.sidebar.header("Settings")
 confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.2, 0.05)
 camera_index = st.sidebar.selectbox("Camera Index", [0, 1, 2], index=0)
 
-# Model path
-model_path = "../models/strap_id/exp_fixed11/weights/best.pt"
+# Get the directory where this script is located
+script_dir = Path(__file__).parent.absolute()
+
+# Try multiple possible paths for the model
+possible_paths = [
+    script_dir / ".." / "models" / "strap_id" / "exp_fixed11" / "weights" / "best.pt",
+    Path("../models/strap_id/exp_fixed11/weights/best.pt"),
+    Path("models/strap_id/exp_fixed11/weights/best.pt"),
+    script_dir / "models" / "strap_id" / "exp_fixed11" / "weights" / "best.pt",
+]
+
+model_path = None
+for path in possible_paths:
+    abs_path = path.resolve()
+    if abs_path.exists():
+        model_path = str(abs_path)
+        st.sidebar.success(f"✅ Model found at: {abs_path}")
+        break
+
+if model_path is None:
+    st.sidebar.error("❌ Model not found. Please specify the path manually.")
+    custom_path = st.sidebar.text_input(
+        "Enter model path:",
+        value=r"C:\Users\Sudhir Pandey\Documents\GitHub\Voltix\models\strap_id\exp_fixed11\weights\best.pt"
+    )
+    if custom_path and Path(custom_path).exists():
+        model_path = custom_path
+        st.sidebar.success(f"✅ Using custom path: {model_path}")
+    else:
+        st.error("Please provide a valid model path in the sidebar.")
+        st.info(f"Script location: {script_dir}")
+        st.info("Searched paths:")
+        for p in possible_paths:
+            st.text(f"  - {p.resolve()}")
+        st.stop()
 
 @st.cache_resource
 def load_model(path):
