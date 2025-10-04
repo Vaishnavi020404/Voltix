@@ -1,11 +1,12 @@
 import streamlit as st
-import cv2
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, RTCConfiguration
 from ultralytics import YOLO
 import numpy as np
-from PIL import Image
+import av
 import time
-import os
 from pathlib import Path
+import queue
+import threading
 
 # Page configuration
 st.set_page_config(
@@ -20,7 +21,6 @@ st.markdown("Real-time detection using YOLOv8")
 # Sidebar controls
 st.sidebar.header("Settings")
 confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.2, 0.05)
-camera_index = st.sidebar.selectbox("Camera Index", [0, 1, 2], index=0)
 
 # Get the directory where this script is located
 script_dir = Path(__file__).parent.absolute()
@@ -38,7 +38,7 @@ for path in possible_paths:
     abs_path = path.resolve()
     if abs_path.exists():
         model_path = str(abs_path)
-        st.sidebar.success(f"✅ Model found at: {abs_path}")
+        st.sidebar.success(f"✅ Model found")
         break
 
 if model_path is None:
@@ -49,7 +49,7 @@ if model_path is None:
     )
     if custom_path and Path(custom_path).exists():
         model_path = custom_path
-        st.sidebar.success(f"✅ Using custom path: {model_path}")
+        st.sidebar.success(f"✅ Using custom path")
     else:
         st.error("Please provide a valid model path in the sidebar.")
         st.info(f"Script location: {script_dir}")
@@ -75,106 +75,120 @@ if model is None:
     st.error("Failed to load YOLO model. Please check the model path.")
     st.stop()
 
+# Detection log queue
+detection_queue = queue.Queue(maxsize=20)
+
+class VideoTransformer(VideoTransformerBase):
+    def __init__(self):
+        self.model = model
+        self.confidence = confidence_threshold
+        self.frame_count = 0
+        
+    def transform(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        self.frame_count += 1
+        
+        # Run YOLO detection
+        results = self.model.predict(source=img, conf=self.confidence, verbose=False)
+        
+        # Annotate frame
+        annotated_img = results[0].plot()
+        
+        # Process detections for log
+        detections = []
+        if len(results[0].boxes) == 0:
+            detections.append("No ID/strap detected")
+        else:
+            for box in results[0].boxes:
+                cls_id = int(box.cls[0])
+                conf = float(box.conf[0])
+                label = self.model.names[cls_id]
+                detections.append(f"{label}: {conf:.2f}")
+        
+        # Add to queue
+        timestamp = time.strftime("%H:%M:%S")
+        try:
+            detection_queue.put_nowait({
+                'time': timestamp,
+                'detections': detections,
+                'count': len(results[0].boxes)
+            })
+        except queue.Full:
+            try:
+                detection_queue.get_nowait()
+                detection_queue.put_nowait({
+                    'time': timestamp,
+                    'detections': detections,
+                    'count': len(results[0].boxes)
+                })
+            except:
+                pass
+        
+        return av.VideoFrame.from_ndarray(annotated_img, format="bgr24")
+
+# RTC Configuration for WebRTC
+RTC_CONFIGURATION = RTCConfiguration(
+    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+)
+
 # Create columns for layout
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.subheader("Live Feed")
-    frame_placeholder = st.empty()
+    webrtc_ctx = webrtc_streamer(
+        key="yolo-detector",
+        video_transformer_factory=VideoTransformer,
+        rtc_configuration=RTC_CONFIGURATION,
+        media_stream_constraints={"video": True, "audio": False},
+        async_processing=True,
+    )
 
 with col2:
     st.subheader("Detection Log")
-    detection_placeholder = st.empty()
-    stats_placeholder = st.empty()
-
-# Control buttons
-start_button = st.button("Start Detection", type="primary")
-stop_button = st.button("Stop Detection", type="secondary")
-
-# Session state for camera control
-if 'run_detection' not in st.session_state:
-    st.session_state.run_detection = False
-
-if start_button:
-    st.session_state.run_detection = True
-
-if stop_button:
-    st.session_state.run_detection = False
-
-# Main detection loop
-if st.session_state.run_detection:
-    cap = cv2.VideoCapture(camera_index)
+    detection_log_placeholder = st.empty()
     
-    if not cap.isOpened():
-        st.error(f"Error: Could not open webcam with index {camera_index}")
-        st.session_state.run_detection = False
-    else:
+    # Display detection log
+    if webrtc_ctx.state.playing:
         detection_log = []
-        frame_count = 0
-        
-        while st.session_state.run_detection:
-            ret, frame = cap.read()
-            
-            if not ret:
-                st.warning("Failed to grab frame")
+        while True:
+            try:
+                if webrtc_ctx.state.playing:
+                    try:
+                        data = detection_queue.get(timeout=1)
+                        log_entry = f"[{data['time']}] {', '.join(data['detections'])}"
+                        detection_log.append(log_entry)
+                        detection_log = detection_log[-15:]  # Keep last 15
+                        
+                        detection_log_placeholder.text_area(
+                            "Recent Detections",
+                            "\n".join(reversed(detection_log)),
+                            height=400
+                        )
+                    except queue.Empty:
+                        pass
+                else:
+                    break
+                    
                 time.sleep(0.1)
-                continue
-            
-            frame_count += 1
-            
-            # Run YOLO detection
-            results = model.predict(source=frame, conf=confidence_threshold, verbose=False)
-            
-            # Annotate frame
-            annotated_frame = results[0].plot()
-            
-            # Convert BGR to RGB for display
-            annotated_frame_rgb = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
-            
-            # Display frame
-            frame_placeholder.image(annotated_frame_rgb, channels="RGB", use_container_width=True)
-            
-            # Process detections
-            current_detections = []
-            if len(results[0].boxes) == 0:
-                current_detections.append("No ID/strap detected")
-            else:
-                for box in results[0].boxes:
-                    cls_id = int(box.cls[0])
-                    conf = float(box.conf[0])
-                    label = model.names[cls_id]
-                    detection_text = f"{label} detected with {conf:.2f} confidence"
-                    current_detections.append(detection_text)
-            
-            # Update detection log (keep last 20 entries)
-            timestamp = time.strftime("%H:%M:%S")
-            for detection in current_detections:
-                detection_log.append(f"[{timestamp}] {detection}")
-            
-            detection_log = detection_log[-20:]  # Keep only last 20
-            
-            # Display detection log
-            with detection_placeholder.container():
-                st.text_area(
-                    "Recent Detections",
-                    "\n".join(reversed(detection_log)),
-                    height=300,
-                    key=f"log_{frame_count}"
-                )
-            
-            # Display stats
-            with stats_placeholder.container():
-                st.metric("Frames Processed", frame_count)
-                st.metric("Current Detections", len(results[0].boxes))
-            
-            # Small delay to prevent overwhelming the system
-            time.sleep(0.03)
-        
-        cap.release()
-        st.success("Detection stopped")
-else:
-    st.info("👆 Click 'Start Detection' to begin")
+            except:
+                break
+    else:
+        st.info("👈 Click 'START' to begin detection")
+
+# Instructions
+st.markdown("---")
+st.markdown("""
+### Instructions:
+1. Click **START** button above to activate your webcam
+2. Allow browser access to your camera when prompted
+3. The model will detect IDs and straps in real-time
+4. Adjust confidence threshold in the sidebar if needed
+5. Click **STOP** to end the session
+
+**Note:** Make sure your browser has camera permissions enabled.
+""")
 
 # Footer
 st.markdown("---")
-st.markdown("**Note:** Make sure your model path is correct and the webcam is accessible.")
+st.markdown("**Powered by YOLOv8 + Streamlit WebRTC**")
