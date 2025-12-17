@@ -18,7 +18,6 @@ st.markdown("Real-time detection using YOLOv8")
 # Sidebar controls
 st.sidebar.header("Settings")
 confidence_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.2, 0.05)
-camera_index = st.sidebar.selectbox("Camera Index", [0, 1, 2], index=0)
 
 # Model path
 model_path = "../models/strap_id/exp_fixed11/weights/best.pt"
@@ -68,10 +67,10 @@ if stop_button:
 
 # Main detection loop
 if st.session_state.run_detection:
-    cap = cv2.VideoCapture(camera_index)
+    cap = cv2.VideoCapture(0)  # Always use default webcam
     
     if not cap.isOpened():
-        st.error(f"Error: Could not open webcam with index {camera_index}")
+        st.error("Error: Could not open default webcam")
         st.session_state.run_detection = False
     else:
         detection_log = []
