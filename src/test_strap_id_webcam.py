@@ -5,6 +5,8 @@ import numpy as np
 from PIL import Image
 import time
 
+
+
 # Page configuration
 st.set_page_config(
     page_title="ID + Strap Detector",
